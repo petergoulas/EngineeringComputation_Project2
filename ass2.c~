@@ -1,0 +1,427 @@
+/***********************************************************************/
+/* Student Name: Panagiotis Goulas, Student ID: 886001                 */
+/* Assignment 2: Subject: Engineering Computation - Comp20005          */
+/* Time and Date Submitted: 21:00 - 20/5/2018                           */
+/*                        Programming is Fun                           */
+/***********************************************************************/
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <math.h>
+#include <ctype.h>
+#include <string.h>
+
+/* Stage 3 */
+#define ROWS 60
+#define COLS 70
+#define CELL_MID_X 0.5
+#define CELL_MID_Y 1.0
+#define EMPTY      ' '
+
+#define NEW_LINE     '\n'
+#define DASH         '-'
+#define HEADER_LINES 1
+#define MAX_TREES    52
+#define MILLION_DEC  1000000.0
+#define TWO          2
+#define THREE        3
+#define EIGHT        8
+#define NINE         9
+
+/* data structure - used Alistair's Code  here */
+typedef struct {
+	char label;
+	double xloc;
+	double yloc;
+	double liters;
+	double rootrad;
+} data_t;
+
+/***********************  Function Prototypes ***************************/
+int mygetchar();
+void remove_first_line(int n);
+int read_stage1(data_t *alldata, int max_trees, double *sum_liters);
+void print_stage1(int ntree, double *sum_liters);
+double calculate_distance(double x1, double y1, double x2, double y2);
+void find_conflicts_stage2(data_t *alldata,int max_trees,int ntree,char tree[]);
+void create_map_stage3(data_t *alldata, int max_trees, int ntree, int stage,
+					   char map_trees[ROWS/2+1][COLS+1]);
+void find_closest_tree(data_t *alldata, int max_trees,double cell_xloc,
+					   double cell_yloc);
+void stage3_printout(char map_trees[ROWS/2+1][COLS+1], int stage);
+//void stage4(data_t *alldata, int max_trees, double rain); 
+
+int
+main (int argc, char *argv[]) {
+	int ntree = 0, stage = 0;
+	char tree[MAX_TREES-1], map_trees[ROWS/2+1][COLS+1];
+	double rain = 0.0, sum_liters = 0.0;
+	
+	data_t alldata[MAX_TREES];
+	//rain = atof(argv[1]);
+	
+	remove_first_line(HEADER_LINES);
+	ntree = read_stage1(alldata, MAX_TREES, &sum_liters);
+	print_stage1(ntree, &sum_liters);
+	find_conflicts_stage2(alldata, MAX_TREES, ntree, tree);
+	stage = THREE;
+	create_map_stage3(alldata, MAX_TREES, ntree, stage, map_trees);
+	stage3_printout(map_trees, stage);
+	//stage4(alldata, MAX_TREES, map, rain);
+	
+	/* All done */
+}
+/* remove first line from the data */
+void
+remove_first_line(int n) {
+	char ch;
+	int counter1 = 1;
+	while (counter1 <= n) {
+		ch = mygetchar();
+		/*printf("%c",ch); */
+		if (ch == NEW_LINE) {
+ 			counter1++;
+ 		}		
+ 	}
+}
+
+
+/* used Alistair's code to bypass the first line */
+int
+mygetchar() {
+	int c;
+	while ((c=getchar())=='\r') {
+	}
+	return c;
+}
+
+/* Used Alistair's Code here - read data into a structure */
+int
+read_stage1(data_t *alldata, int max_trees, double *sum_liters) {
+	char label;
+	int ntree = 0;
+	double xloc = 0.0, yloc = 0.0, rootrad = 0.0, liters = 0.0;
+	
+	while (scanf("%c%lf%lf%lf%lf\n",
+			&label, &xloc, &yloc, &liters, &rootrad) == 5) {
+		//printf("%c %.1f %.1f %d %.1f", label, xloc, yloc, liters, rootrad);	
+		alldata[ntree].label = label;
+		alldata[ntree].xloc = xloc;
+		alldata[ntree].yloc = yloc;
+		alldata[ntree].liters = liters;
+		alldata[ntree].rootrad = rootrad;
+		ntree++;
+		*sum_liters += liters;
+		/*printf("\n"); */
+	}
+	return ntree;
+}
+
+void
+print_stage1(int ntree, double *sum_liters) {
+	printf("S1: total data lines   = %5d trees\n", ntree);
+	printf("S1: total water needed = %0.3f megaliters per year\n\n",
+			*sum_liters/MILLION_DEC);
+}
+
+void
+find_conflicts_stage2(data_t *alldata, int max_trees, int ntree, char tree[]) {
+	int i = 0, j = 0;
+	double distance = 0.0, sum_rootrad = 0.0, x1 = 0.0, x2 = 0.0, y1 = 0.0,
+		   y2 = 0.0;
+	for (i = 0; i < ntree; i++) {
+		printf("S2: tree %c is in conflict with ", alldata[i].label);
+		for (j = 0; j < ntree; j++) {
+			/* don't check the tree itself */
+			if (i != j) {
+				sum_rootrad = alldata[i].rootrad + alldata[j].rootrad;
+				/* this step is not necessary. I just do it to keep my */
+				/* character limit under the limit set by the rubric   */
+				x1 = alldata[i].xloc;
+				x2 = alldata[j].xloc;
+				y1 = alldata[i].yloc;
+				y2 = alldata[j].yloc;
+				distance = calculate_distance(x1, y1, x2, y2);
+				//printf("\n\n1st Tree = %c, 2nd Tree = %c, (x1,y1) = (%.4f,%.4f), (x2,y2)= (%.4f,%.4f) , sum_rootrad = %f , distance = %lf \n\n", alldata[i].label, alldata[j].label, x1, y1, x2, y2, sum_rootrad, distance);
+				if (sum_rootrad > distance) {
+					printf("%c ", alldata[j].label);
+				}
+			}	
+		}
+		printf("\n");
+	}
+	printf("\n");
+}
+
+/* calculate & return the distance between 2 points eg A(x1,x2) and B(y1,y2) */
+double
+calculate_distance(double x1, double y1, double x2, double y2) {
+	double distance = 0.0, diff_x = 0.0, diff_y = 0.0;
+	diff_x = fabs(x1-x2);
+	diff_y = fabs(y1-y2);
+	distance = sqrt(pow(diff_x,TWO) + pow(diff_y,TWO));
+	return distance;
+}
+
+void
+create_map_stage3(data_t *alldata, int max_trees,int ntree, int stage,
+				  char map_trees[ROWS/2+1][COLS+1]) {
+	int i = 0, j = 0, k = 0, condition = 0, count = 0, yaxis = ROWS, x = 0,
+		xaxis = 0;
+	double cell_xloc = 0.0, cell_yloc = 0.0, min_distance = 0.0,distance = 0.0;
+	char tree_label;
+	
+	/* WORKS FINE FOR PRINTING AXIS */
+	
+	for (j= ROWS; j >= 0; j -= 2) {
+		/*
+		if (j == yaxis) {
+			printf("S%d: %2d +", stage, yaxis);
+			 
+			yaxis -= 10;
+		} else { 
+			printf("S%d:    |", stage);
+		}
+		*/
+		
+		for (i = 0; i <= COLS; i++) {
+			/*
+			if ((i = 0) && (j % 10) == 0) {
+				printf("+");
+			} 
+			if (i == 0) {
+				//printf("%c", DASH);
+			}
+			*/
+			
+			/* find trees that contain that cell */
+			//printf("\n\ni=%d and j=%d\n\n", i, j);
+			
+			//printf("\ni,j==(%d,%d)\n", i,j);
+			
+			cell_xloc = (i*1.0) - CELL_MID_X;
+			cell_yloc = (j*1.0) + CELL_MID_Y;
+			//printf("*");
+			/*
+			find_closest_tree(alldata, max_trees, cell_xloc,
+										   cell_yloc, tree_label);
+			*/
+			//printf("\ntreelabel=%c\n", tree_label);
+			
+			//printf("%c", tree_label);
+			//printf("\ncell_x,cell_y = (%f,%f)\n", cell_xloc, cell_yloc);
+				//printf("\ncell_x,cell_y = %f,%f\n", cell_xloc, cell_yloc);
+			condition = 0;
+			count = 0;
+			for (k = 0; k <= (ntree-1); k++) {
+		
+		    //printf("\ntrees x,y = %f,%f\n", alldata[i].xloc,alldata[i].yloc);
+				//printf("\nTree = %f,%f\n", alldata[k].xloc,alldata[k].yloc);
+				distance = calculate_distance(cell_xloc, cell_yloc, 
+											  alldata[k].xloc,alldata[k].yloc);
+				//printf("\ndistance is = %f\n", distance);
+				/*
+				if (k ==0) {
+				//	printf("\nk is f now\n");
+				}
+				if (k == 0) {
+					min_distance = distance;
+				//	printf("\nmin_distance = %f\n", min_distance);
+				}
+				*/
+				/*
+				printf("\nk=%d\n", k);
+				printf("\ndistance=%f\n", distance);
+				printf("\nrootrad=%f\n", alldata[k].rootrad);
+				*/
+				if (distance <= alldata[k].rootrad) {
+					//printf("\ndistance is smaller than rootrad\n")
+					//printf("\nk=%d\n", k);
+					//printf("\nrootrad = %f\n", alldata[k].rootrad);
+					condition = 1;
+					//printf("\ncondition is 1\n");
+					
+					if (count == 0) {
+						count += 1;
+						min_distance = distance;
+						tree_label = alldata[k].label;
+						//printf("\n count=0 \n");
+						//printf("\nmin_distance=%f\n", min_distance);
+					}
+					
+					
+					if (distance <= min_distance) {
+						min_distance = distance;
+						tree_label = alldata[k].label;
+						//printf("\nnew min_dist=%f,tree_lab=%c\n", min_distance, tree_label);
+				//	printf("\ntree_label = %c\n", tree_label);
+					}
+					
+				}
+			}
+			/* CHECK X, I */
+			//printf("\nx,i = %d,%d\n", x, i);
+			
+			//printf("\nending condition is=%d\n", condition);
+			//if (j == 0) {
+				//printf("S3: ");
+			//}
+			//printf("\nx,i= %d,%d\n", x, i);
+			if (condition == 0) {
+				//printf("%c", EMPTY);
+				//map[x][i] = ' ';
+				map_trees[x][i] = EMPTY;
+				//printf("x,i=%d,%d\n", x, i);
+				//printf("empty and map_trees=%\n", map_trees[x][i]);
+				
+			} else {
+				//printf("%c", tree_label);
+				//map[x][i] = tree_label;
+				map_trees[x][i] = tree_label;
+				//printf("x,i=%d,%d\n", x, i);
+				//printf("label and map_trees=%c\n", map_trees[x][i]);
+				
+			}
+		}
+		x++;
+		
+		/* BIG BUG WITHOUT THIS ONE */
+		//printf("\n");
+
+	}
+	
+	
+	/* TESTING IF 2D MAP WORKS ALL GOOD */
+	/*
+	for (i = 0; i < ((ROWS/2)+1); i++) {
+		for (j= 0; j < COLS+1; j++) {
+			printf("%c", map_trees[i][j]);
+		}
+		printf("\n");
+	}
+	*/
+	
+	
+	
+}	
+	/*
+	for (i=0; i<=1; i++) {
+		for (j=0; j<=COLS; j++) {
+			if (i == 0) {
+				printf("S%d:     ", stage);
+			}
+			if ((i == 0) && ((j == 0) || (j % 10 == 0 ))) {
+				printf("+");
+			} else {
+				printf("%c", DASH);
+			}
+			if ((i == 1) && ((j == 0) || (((j%10)+1) == 0))) {
+				printf("%d", xaxis);
+				xaxis += 10;
+			}
+				
+		}
+	}
+	
+	*/
+	// WORKS FINE AXIS 
+	/*
+	for (i=0; i<=COLS; i++) {
+		if (i==0) {
+			printf("S%d:     ", stage);
+		}
+		if ((i == 0) || (i % 10 == 0 )) {
+			printf("+");
+		} else {
+			printf("%c", DASH);
+		}
+		
+	}
+	printf("\n");
+	count = 0;
+	for (i = 0; i <= COLS; i++) {
+		if (i == 0) {
+			printf("S%d:     ", stage);
+		}
+		if ((i == 0) || ((i+1) % 10) == 0) {
+			printf("%d", xaxis);
+			xaxis += 10;
+			count += 1;
+			for (j = 1; j <= EIGHT; j++) {
+			printf(" ");
+		}
+		} 
+
+		
+	}
+	printf("\n");
+	*/
+	
+//}
+
+void
+stage3_printout(char map_trees[ROWS/2+1][COLS+1], int stage) {
+	int i = 0, j = 0, yaxis = ROWS, x = 0, xaxis = 0, count = 0;
+	
+	for (j= ROWS; j >= 0; j -= 2) {
+		if (j == yaxis) {
+			printf("S%d: %2d +", stage, yaxis);
+			yaxis -= 10;
+		} else { 
+			printf("S%d:    |", stage);
+		}
+		
+		
+		for (i = 0; i <= COLS; i++) {
+			printf("%c", map_trees[x][i]);
+		}
+		x += 1;
+		printf("\n");
+	}
+	for (i=0; i<=COLS; i++) {
+		if (i==0) {
+			printf("S%d:     ", stage);
+		}
+		if ((i == 0) || (i % 10 == 0 )) {
+			printf("+");
+		} else {
+			printf("%c", DASH);
+		}
+	}
+	printf("\n");
+	count = 0;
+	for (i = 0; i <= COLS; i++) {
+		if (i == 0) {
+			printf("S%d:     ", stage);
+		}
+		if ((i == 0) || ((i+1) % 10) == 0) {
+			printf("%d", xaxis);
+			xaxis += 10;
+			count += 1;
+			for (j = 1; j <= EIGHT; j++) {
+			printf(" ");
+			}
+		} 
+	}
+	printf("\n\n");
+}
+/*
+void
+stage4(data_t *alldata, int max_trees, double rain) {
+
+}
+*/
+
+
+
+
+
+
+
+/***********************************************************************/
+/*             Thank you for going through my program                  */
+/*                        Have a Nice Day!                             */
+/*                                =)                                   */
+/***********************************************************************/
+
+/*                        Programming is Fun                           */
